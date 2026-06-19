@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guardians of Time - Central de Mando</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Space Grotesk (futurista) e Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-tech {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        /* Custom scrollbar for cyber aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #60a5fa;
+        }
+        /* Neon glows */
+        .neon-glow-blue {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+        .neon-glow-purple {
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        }
+        .neon-border-cyan {
+            border-color: rgba(6, 182, 212, 0.5);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col justify-between overflow-x-hidden selection:bg-cyan-500 selection:text-black">
+
+    <script>
+        // Simple Audio Engine (Web Audio API) for sound effects without external file dependencies
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'success') {
+                    // Upward arpeggio
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.35);
+                } else if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.12);
+                } else if (type === 'level-up') {
+                    // Majestic futuristic alarm
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(261.63, audioCtx.currentTime); // C4
+                    osc.frequency.setValueAtTime(329.63, audioCtx.currentTime + 0.1); // E4
+                    osc.frequency.setValueAtTime(392.00, audioCtx.currentTime + 0.2); // G4
+                    osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.5); // C6
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.65);
+                } else if (type === 'fail') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.45);
+                }
+            } catch (e) {
+                console.warn("Audio Context not supported or blocked by browser gesture rules.");
+            }
+        }
+    </script>
+
+    <div class="fixed inset-0 z-0 pointer-events-none opacity-20">
+        <canvas id="bgCanvas" class="w-full h-full"></canvas>
+    </div>
+
+    <!-- Onboarding Modal / Setup Space (Launches if no crononaut registered) -->
+    <div id="onboardingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+        <div class="bg-slate-900 border border-cyan-500/30 p-8 rounded-2xl max-w-md w-full neon-glow-blue relative overflow-hidden">
+            <div class="absolute -top-12 -left-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-12 -right-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl"></div>
+
+            <div class="relative text-center">
+                <div class="inline-flex p-3 bg-cyan-950/50 rounded-full border border-cyan-500/30 text-cyan-400 mb-4 animate-bounce">
+                    <i class="fa-solid fa-user-astronaut text-3xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold font-tech text-white mb-2 tracking-tight">¡RECLUTAMIENTO DETECTADO!</h2>
+                <p class="text-slate-400 text-sm mb-6">
+                    Has sido contactado por la orden secreta <span class="text-cyan-400 font-semibold">Guardians of Time</span>. Una anomalía temporal ha esparcido los inventos clave del ser humano. Define tu identidad de Crononauta para comenzar.
+                </p>
+
+                <!-- Avatar Selector -->
+                <div class="mb-6">
+                    <label class="block text-slate-300 text-sm font-semibold mb-2">Selecciona tu Avatar Temporal</label>
+                    <div class="grid grid-cols-4 gap-3" id="avatarGrid">
+                        <button onclick="selectAvatar('🚀', this)" class="avatar-opt text-2xl p-3 bg-slate-800 border-2 border-transparent hover:border-cyan-500 rounded-xl transition duration-200">🚀</button>
+                        <button onclick="selectAvatar('👾', this)" class="avatar-opt text-2xl p-3 bg-slate-800 border-2 border-transparent hover:border-cyan-500 rounded-xl transition duration-200">👾</button>
+                        <button onclick="selectAvatar('⚡', this)" class="avatar-opt text-2xl p-3 bg-slate-800 border-2 border-transparent hover:border-cyan-500 rounded-xl transition duration-200">⚡</button>
+                        <button onclick="selectAvatar('🕶️', this)" class="avatar-opt text-2xl p-3 bg-slate-800 border-2 border-cyan-500 rounded-xl transition duration-200 bg-cyan-950/30">🕶️</button>
+                    </div>
+                </div>
+
+                <!-- Name Input -->
+                <div class="mb-6">
+                    <label for="crononautName" class="block text-slate-300 text-sm font-semibold mb-2">Nombre Clave de Crononauta</label>
+                    <input type="text" id="crononautName" value="Crononauta Novato" placeholder="Ej: Neo_99" maxlength="15" 
+                           class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 rounded-lg py-2.5 px-4 text-white font-tech outline-none transition duration-200 text-center">
+                </div>
+
+                <button onclick="registerCrononaut()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-cyan-500/20 transition-all duration-200 font-tech uppercase tracking-wide">
+                    Iniciar Viaje Temporal <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainInterface" class="relative z-10 flex flex-col min-h-screen">
+        
+        <!-- Header with Crononaut Dashboard Info -->
+        <header class="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-4">
+                
+                <!-- Brand Title -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-cyan-500/10 rounded-lg flex items-center justify-center border border-cyan-500/30 text-cyan-400 animate-pulse">
+                        <i class="fa-solid fa-hourglass-half text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-tech text-lg md:text-xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">
+                            GUARDIANS OF TIME
+                        </h1>
+                        <p class="text-xs text-slate-400 tracking-widest uppercase">Misión de los Inventos Perdidos</p>
+                    </div>
+                </div>
+
+                <!-- Real-time Interactive Player Widget -->
+                <div class="flex items-center gap-4 bg-slate-950/60 p-2 px-4 rounded-xl border border-slate-800/80 w-full md:w-auto">
+                    <!-- Avatar and Identity -->
+                    <div class="flex items-center gap-2">
+                        <span id="headerAvatar" class="text-2xl">🕶️</span>
+                        <div>
+                            <div class="text-xs text-slate-400">Crononauta</div>
+                            <div id="headerName" class="font-tech font-bold text-slate-200 text-sm">Crononauta Novato</div>
+                        </div>
+                    </div>
+
+                    <!-- XP Tracker & Badge -->
+                    <div class="h-8 w-[1px] bg-slate-800"></div>
+
+                    <div class="flex-1 md:flex-initial">
+                        <div class="flex justify-between text-[10px] text-slate-400 font-mono mb-1">
+                            <span id="headerLevelName">Nivel 1: Aprendiz</span>
+                            <span><span id="headerXP">0</span> / 250 XP</span>
+                        </div>
+                        <div class="w-full md:w-40 bg-slate-800 rounded-full h-2 overflow-hidden">
+                            <div id="headerXPBar" class="bg-gradient-to-r from-cyan-400 to-indigo-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="hidden lg:flex items-center gap-2">
+                        <div class="h-8 w-[1px] bg-slate-800"></div>
+                        <div class="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                            <i class="fa-solid fa-medal text-yellow-500 text-xs"></i>
+                            <span id="badgeCountHeader" class="text-xs font-mono font-bold text-yellow-500">0/5</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </header>
+
+        <!-- Dynamic Feedback Notification system (Custom Toast) -->
+        <div id="feedbackToast" class="fixed top-20 right-4 z-50 transform translate-x-96 transition-all duration-300 pointer-events-none">
+            <div id="toastContent" class="bg-slate-900 border-l-4 border-cyan-400 py-3 px-5 rounded-lg shadow-xl flex items-center gap-3">
+                <i id="toastIcon" class="fa-solid fa-circle-info text-cyan-400 text-lg"></i>
+                <div>
+                    <h4 id="toastTitle" class="font-tech font-bold text-sm text-white">Notificación</h4>
+                    <p id="toastMessage" class="text-xs text-slate-300">Mensaje de control temporal.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 flex flex-col lg:flex-row gap-6">
+            
+            <!-- Side Navigation Menu (Cyberpunk Terminal style) -->
+            <aside class="lg:w-64 shrink-0 flex flex-col gap-4">
+                <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-md">
+                    <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-3 px-2">SISTEMA CENTRAL</p>
+                    <nav class="flex flex-col gap-1.5" id="navTabs">
+                        <button onclick="switchTab('inicio')" data-tab="inicio" class="tab-btn active w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition duration-150 text-sm font-tech">
+                            <span class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-nodes text-cyan-400"></i> Inicio y Misión
+                            </span>
+                            <i class="fa-solid fa-chevron-right text-[10px] opacity-50"></i>
+                        </button>
+                        <button onclick="switchTab('linea')" data-tab="linea" class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition duration-150 text-sm font-tech">
+                            <span class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-timeline text-indigo-400"></i> Línea de Tiempo
+                            </span>
+                            <i class="fa-solid fa-chevron-right text-[10px] opacity-50"></i>
+                        </button>
+                        <button onclick="switchTab('misiones')" data-tab="misiones" class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition duration-150 text-sm font-tech">
+                            <span class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-terminal text-green-400"></i> Misiones Activas
+                            </span>
+                            <span class="bg-green-950/80 border border-green-500/30 text-green-400 text-[10px] font-mono px-1.5 py-0.5 rounded-full">¡JUGAR!</span>
+                        </button>
+                        <button onclick="switchTab('insignias')" data-tab="insignias" class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition duration-150 text-sm font-tech">
+                            <span class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-medal text-yellow-400"></i> Sala de Insignias
+                            </span>
+                            <i class="fa-solid fa-chevron-right text-[10px] opacity-50"></i>
+                        </button>
+                        <button onclick="switchTab('ranking')" data-tab="ranking" class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition duration-150 text-sm font-tech">
+                            <span class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-ranking-star text-pink-400"></i> Ranking Crononautas
+                            </span>
+                            <i class="fa-solid fa-chevron-right text-[10px] opacity-50"></i>
+                        </button>
+                        <button onclick="switchTab('juego')" data-tab="juego" class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition duration-150 text-sm font-tech">
+                            <span class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-gamepad text-emerald-400"></i> Juego Educativo
+                            </span>
+                            <i class="fa-solid fa-chevron-right text-[10px] opacity-50"></i>
+                        </button>
+                        <button onclick="switchTab('recursos')" data-tab="recursos" class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/50 transition duration-150 text-sm font-tech">
+                            <span class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-book-bookmark text-amber-400"></i> Evaluaciones y Docs
+                            </span>
+                            <i class="fa-solid fa-chevron-right text-[10px] opacity-50"></i>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Live Quick Fact Widget -->
+                <div class="bg-gradient-to-br from-indigo-950/40 to-slate-900/60 border border-indigo-500/10 rounded-2xl p-4 text-center">
+                    <i class="fa-regular fa-lightbulb text-indigo-400 text-lg mb-2"></i>
+                    <h5 class="font-tech text-xs font-semibold text-indigo-200">Dato Histórico del Tiempo</h5>
+                    <p id="timeFact" class="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Cargando transmisiones temporales del pasado...
+                    </p>
+                </div>
+            </aside>
+
+            <main class="flex-1 min-w-0 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden">
+                
+                <!-- Tab: Inicio -->
+                <section id="tab-inicio" class="tab-content flex flex-col gap-6">
+                    
+                    <!-- Narrative Banner -->
+                    <div class="relative bg-gradient-to-r from-cyan-950/50 to-indigo-950/50 border border-cyan-500/20 rounded-xl p-6 overflow-hidden">
+                        <div class="absolute -right-20 -bottom-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+                        <h2 class="text-3xl font-bold font-tech text-white tracking-tight">LA NARRATIVA GENERAL</h2>
+                        <h3 class="text-lg text-cyan-400 font-tech mt-1 mb-3">Guardians of Time: La Misión de los Inventos Perdidos</h3>
+                        <p class="text-slate-300 text-sm leading-relaxed max-w-3xl">
+                            Una catastrófica falla en la línea temporal ha provocado la desaparición sistemática de algunos de los inventos más importantes de la historia humana. Como alumnos de grado noveno, habéis sido reclutados por la organización secreta <span class="text-cyan-400 font-semibold font-tech">Guardians of Time</span> para asumir el título de <span class="text-indigo-400 font-semibold">Crononautas Tecnológicos</span>.
+                        </p>
+                        <p class="text-slate-400 text-xs mt-3 border-t border-slate-800/60 pt-3">
+                            <i class="fa-solid fa-user-tie text-cyan-400 mr-2"></i> Guiados por los docentes (Guardianes del Tiempo), viajaréis por las diferentes épocas para recuperar estos inventos antes de que el presente sea borrado del todo.
+                        </p>
+                    </div>
+
+                    <!-- Layout of Context and Objectives -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <!-- Aula / Contexto -->
+                        <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i class="fa-solid fa-chalkboard-user text-cyan-400"></i>
+                                <h4 class="font-tech font-bold text-slate-100">1. Contexto de Aula</h4>
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                Diseñado para estudiantes de grado noveno (14 y 15 años). Esta estrategia de gamificación busca romper el desinterés tradicional y los bajos niveles de motivación del grupo mediante el uso de tecnologías digitales que atraigan su atención innata hacia los dispositivos modernos.
+                            </p>
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-cyan-950/60 border border-cyan-500/20 text-cyan-400 text-[10px] font-tech font-semibold">
+                                <i class="fa-solid fa-users text-xs"></i> 9° Grado | 14-15 Años
+                            </span>
+                        </div>
+
+                        <!-- Area / Conocimiento -->
+                        <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i class="fa-solid fa-school text-indigo-400"></i>
+                                <h4 class="font-tech font-bold text-slate-100">2. Área de Conocimiento</h4>
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-2">
+                                <strong class="text-slate-200">Asignatura:</strong> Tecnología e Informática.
+                            </p>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                <strong class="text-slate-200">Unidad temática:</strong> Evolución de los inventos tecnológicos que marcaron un punto de inflexión en la historia de nuestra especie.
+                            </p>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">Rueda</span>
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">Imprenta</span>
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">Brújula</span>
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">Vapor</span>
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">Teléfono</span>
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">PC</span>
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">Internet</span>
+                                <span class="bg-slate-800/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">IA</span>
+                            </div>
+                        </div>
+
+                        <!-- Objetivos -->
+                        <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i class="fa-solid fa-bullseye text-pink-500"></i>
+                                <h4 class="font-tech font-bold text-slate-100">3. Objetivos Didácticos</h4>
+                            </div>
+                            <h5 class="text-xs font-bold text-pink-400 mb-1">Objetivo General</h5>
+                            <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+                                Comprender la evolución de los principales inventos tecnológicos y su impacto en el desarrollo de la sociedad mediante una experiencia gamificada basada en viajes en el tiempo.
+                            </p>
+                            <h5 class="text-xs font-bold text-pink-400 mb-1">Objetivos Específicos</h5>
+                            <ul class="text-[11px] text-slate-400 list-disc list-inside space-y-1">
+                                <li>Identificar inventos tecnológicos cruciales para la historia.</li>
+                                <li>Reconocer el impacto de la tecnología en la vida diaria.</li>
+                                <li>Fortalecer habilidades de investigación y análisis crítico.</li>
+                                <li>Promover el trabajo colaborativo en misiones temporales.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Competencias -->
+                        <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i class="fa-solid fa-brain text-emerald-400"></i>
+                                <h4 class="font-tech font-bold text-slate-100">4. Competencias a Desarrollar</h4>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <div class="bg-slate-950/60 p-2 rounded border border-emerald-950 flex items-center gap-2 text-[10px] text-slate-300">
+                                    <i class="fa-solid fa-microchip text-emerald-400 text-xs"></i> Competencia Tecnológica
+                                </div>
+                                <div class="bg-slate-950/60 p-2 rounded border border-emerald-950 flex items-center gap-2 text-[10px] text-slate-300">
+                                    <i class="fa-solid fa-laptop-code text-cyan-400 text-xs"></i> Competencia Digital
+                                </div>
+                                <div class="bg-slate-950/60 p-2 rounded border border-emerald-950 flex items-center gap-2 text-[10px] text-slate-300">
+                                    <i class="fa-solid fa-magnifying-glass text-indigo-400 text-xs"></i> Competencia Investigativa
+                                </div>
+                                <div class="bg-slate-950/60 p-2 rounded border border-emerald-950 flex items-center gap-2 text-[10px] text-slate-300">
+                                    <i class="fa-solid fa-comments text-pink-400 text-xs"></i> Competencia Comunicativa
+                                </div>
+                                <div class="bg-slate-950/60 p-2 rounded border border-emerald-950 flex items-center gap-2 text-[10px] text-slate-300 col-span-2 justify-center">
+                                    <i class="fa-solid fa-handshake text-yellow-400 text-xs"></i> Competencia Ciudadana y Trabajo en Red
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Dinámicas, Mecánicas y Componentes (Tabla Interactiva) -->
+                    <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-gears text-indigo-400"></i>
+                            <h4 class="font-tech font-bold text-slate-100">6. Estructura de Diseño de la Gamificación</h4>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Dinámicas -->
+                            <div class="bg-slate-950/60 p-4 rounded-lg border border-indigo-900/40">
+                                <div class="flex items-center gap-2 text-indigo-400 font-tech font-bold text-sm mb-2">
+                                    <i class="fa-solid fa-wind text-xs"></i> DINÁMICAS
+                                </div>
+                                <ul class="text-xs text-slate-400 space-y-2">
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-indigo-400 mt-1"></i> Exploración histórica inmersiva de hitos.</li>
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-indigo-400 mt-1"></i> Trabajo colaborativo dentro de tripulaciones de exploración.</li>
+                                </ul>
+                            </div>
+                            <!-- Mecánicas -->
+                            <div class="bg-slate-950/60 p-4 rounded-lg border border-cyan-900/40">
+                                <div class="flex items-center gap-2 text-cyan-400 font-tech font-bold text-sm mb-2">
+                                    <i class="fa-solid fa-gear text-xs"></i> MECÁNICAS
+                                </div>
+                                <ul class="text-xs text-slate-400 space-y-2">
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-cyan-400 mt-1"></i> Misiones, retos y desafíos históricos.</li>
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-cyan-400 mt-1"></i> Sistema de puntos de experiencia (XP) acumulable.</li>
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-cyan-400 mt-1"></i> Clasificación y escala progresiva de niveles.</li>
+                                </ul>
+                            </div>
+                            <!-- Componentes -->
+                            <div class="bg-slate-950/60 p-4 rounded-lg border border-pink-900/40">
+                                <div class="flex items-center gap-2 text-pink-400 font-tech font-bold text-sm mb-2">
+                                    <i class="fa-solid fa-puzzle-piece text-xs"></i> COMPONENTES
+                                </div>
+                                <ul class="text-xs text-slate-400 space-y-2">
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-pink-400 mt-1"></i> Insignias y medallas de logros digitales.</li>
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-pink-400 mt-1"></i> Tabla de ranking global de crononautas.</li>
+                                    <li class="flex items-start gap-1.5"><i class="fa-solid fa-chevron-right text-[8px] text-pink-400 mt-1"></i> Personalización de avatares holográficos.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-linea" class="tab-content hidden flex flex-col gap-6">
+                    <div class="border-b border-slate-800 pb-3 flex justify-between items-center flex-wrap gap-2">
+                        <div>
+                            <h2 class="text-2xl font-bold font-tech text-white">PLANIFICACIÓN: LÍNEA TEMPORAL</h2>
+                            <p class="text-xs text-slate-400">Desglose de las 8 semanas de estudio tecnológico</p>
+                        </div>
+                        <span class="bg-indigo-950/80 border border-indigo-500/30 text-indigo-400 text-xs font-tech px-3 py-1 rounded-full font-semibold">
+                            Ruta Temporal Activa
+                        </span>
+                    </div>
+
+                    <!-- Beautiful Interactive Vertical Timeline -->
+                    <div class="relative border-l border-slate-800 ml-4 md:ml-6 pl-6 md:pl-8 space-y-8 my-4">
+                        
+                        <!-- Semana 1 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-cyan-500 text-slate-950 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:scale-110 transition duration-150 shadow-md shadow-cyan-500/30">1</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-cyan-400 font-tech font-bold tracking-wider uppercase">SEMANA 1</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">Reclutamiento</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Inducción y Preparación Temporal</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Establecimiento de las reglas del juego. Formación de las tripulaciones de crononautas en el aula. Introducción a la plataforma web y la narrativa central.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Semana 2 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-slate-800 text-indigo-400 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:bg-indigo-500 group-hover:text-slate-950 transition duration-150">2</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-indigo-400 font-tech font-bold tracking-wider uppercase">SEMANA 2</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">La Rueda</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Misión Mesopotamia</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Viaje a la antigua Mesopotamia para recuperar el concepto del eje y la rueda. Estudio del impacto en el transporte primigenio y la alfarería.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Semana 3 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-slate-800 text-indigo-400 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:bg-indigo-500 group-hover:text-slate-950 transition duration-150">3</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-indigo-400 font-tech font-bold tracking-wider uppercase">SEMANA 3</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">La Imprenta</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Reto Gutenberg</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Llegada al siglo XV para recuperar la técnica de los tipos móviles. Análisis de la democratización del conocimiento y el fin de los manuscritos medievales.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Semana 4 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-slate-800 text-indigo-400 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:bg-indigo-500 group-hover:text-slate-950 transition duration-150">4</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-indigo-400 font-tech font-bold tracking-wider uppercase">SEMANA 4</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">La Brújula</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Expedición Marítima</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Análisis de la aguja imantada en la navegación astronómica antigua. Comprensión de cómo el comercio intercontinental expandió la globalización temprana.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Semana 5 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-slate-800 text-indigo-400 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:bg-indigo-500 group-hover:text-slate-950 transition duration-150">5</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-indigo-400 font-tech font-bold tracking-wider uppercase">SEMANA 5</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">Máquina de Vapor</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Revolución Industrial</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Ubicación temporal en las minas y fábricas del siglo XVIII. Estudio de la transformación energética de carbón a energía mecánica y el auge del ferrocarril.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Semana 6 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-slate-800 text-indigo-400 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:bg-indigo-500 group-hover:text-slate-950 transition duration-150">6</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-indigo-400 font-tech font-bold tracking-wider uppercase">SEMANA 6</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">El Teléfono</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Comunicación Global</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Exploración del paso de señales visuales al cable de cobre. Investigación de la transmisión instantánea del habla humana y los pioneros de la telegrafía/telefonía.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Semana 7 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-slate-800 text-indigo-400 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:bg-indigo-500 group-hover:text-slate-950 transition duration-150">7</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-indigo-400 font-tech font-bold tracking-wider uppercase">SEMANA 7</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">Computador</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Era Digital</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Viaje a mediados del siglo XX para recuperar la computación digital. Comprensión del cálculo electrónico, los transistores y el surgimiento del microprocesador.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Semana 8 -->
+                        <div class="relative group">
+                            <span class="absolute -left-[41px] md:-left-[49px] top-1 bg-slate-800 text-indigo-400 font-tech font-bold rounded-full w-8 h-8 flex items-center justify-center text-xs group-hover:bg-indigo-500 group-hover:text-slate-950 transition duration-150">8</span>
+                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/30 transition duration-150">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-indigo-400 font-tech font-bold tracking-wider uppercase">SEMANA 8</span>
+                                    <span class="text-slate-500">•</span>
+                                    <span class="text-xs text-slate-400">Internet & IA</span>
+                                </div>
+                                <h4 class="font-tech font-bold text-slate-200 text-base">Misión Futuro</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Análisis de la red descentralizada de información y el surgimiento de los sistemas generativos modernos de Inteligencia Artificial como catalizadores de cambio.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <section id="tab-misiones" class="tab-content hidden flex flex-col gap-6">
+                    <div class="border-b border-slate-800 pb-3 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold font-tech text-white">SIMULADOR DE MISIONES TEMPORALES</h2>
+                            <p class="text-xs text-slate-400">Conéctate a la época requerida para recuperar los planos de los inventos perdidos</p>
+                        </div>
+                    </div>
+
+                    <!-- Mission Control Panel -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        <!-- List of Selectable Missions -->
+                        <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-2.5">
+                            <h4 class="text-xs font-tech font-bold tracking-wider text-slate-400 uppercase mb-2 px-1">Coordenadas de Época</h4>
+                            
+                            <!-- We will build these buttons dynamically to reflect completion -->
+                            <div id="misionesSelectorList" class="space-y-2">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Mission Briefing & Play Space -->
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6 relative flex flex-col justify-between" id="missionWorkspace">
+                            <!-- Inactive initial state -->
+                            <div id="noActiveMission" class="flex flex-col items-center justify-center text-center py-12">
+                                <i class="fa-solid fa-satellite-dish text-4xl text-cyan-400 animate-pulse mb-4"></i>
+                                <h4 class="font-tech font-bold text-slate-200 text-lg">Central de Comunicación Desconectada</h4>
+                                <p class="text-xs text-slate-400 max-w-sm mt-1">
+                                    Por favor, selecciona una de las misiones temporales del panel izquierdo para inicializar el viaje cuántico.
+                                </p>
+                            </div>
+
+                            <!-- Interactive Live Question State (shown via JS) -->
+                            <div id="activeMissionPlay" class="hidden flex-col gap-4">
+                                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                    <span id="activeMissionWeek" class="text-xs text-cyan-400 font-tech font-bold">W-2: MESOPOTAMIA</span>
+                                    <span class="bg-indigo-950 border border-indigo-500/30 text-[10px] text-indigo-300 font-mono py-0.5 px-2 rounded-full font-bold">+50 XP DISPONIBLES</span>
+                                </div>
+
+                                <div class="py-2">
+                                    <h3 id="activeMissionTitle" class="font-tech font-bold text-lg text-white mb-2">Recuperando la Rueda</h3>
+                                    <p id="activeMissionDesc" class="text-xs text-slate-400 mb-4 leading-relaxed">
+                                        Has aterrizado en el año 3500 a.C. en la región fértil entre los ríos Tigris y Éufrates. Te infiltras entre un grupo de artesanos alfareros que debaten sobre un disco giratorio de arcilla...
+                                    </p>
+                                    
+                                    <!-- Challenge Question box -->
+                                    <div class="bg-slate-950/60 p-4 rounded-lg border border-slate-800 mb-4">
+                                        <p class="text-slate-300 text-xs font-semibold mb-3">
+                                            <i class="fa-solid fa-terminal text-green-400 mr-2"></i> <span id="missionQuestion">Pregunta de la misión...</span>
+                                        </p>
+                                        <div id="missionOptions" class="space-y-2 flex flex-col">
+                                            <!-- Interactive option buttons go here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end gap-3 mt-4 border-t border-slate-800 pt-3">
+                                    <button onclick="checkSelectedAnswer()" id="sendAnswerBtn" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-tech font-bold text-xs py-2 px-5 rounded-lg uppercase transition duration-150">
+                                        Transmitir Respuesta <i class="fa-solid fa-paper-plane ml-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Success / Completed State -->
+                            <div id="missionSuccessState" class="hidden flex-col items-center justify-center text-center py-8">
+                                <div class="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-400 border border-emerald-500/30 text-2xl mb-4 animate-bounce">
+                                    <i class="fa-solid fa-clipboard-check"></i>
+                                </div>
+                                <h3 class="font-tech font-bold text-lg text-white">Misión Temporal Superada</h3>
+                                <p class="text-xs text-slate-400 mt-1 max-w-xs">
+                                    Has estabilizado esta sección de la línea temporal. Los planos históricos del invento están seguros.
+                                </p>
+                                <button onclick="resetMissionSpace()" class="mt-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-tech py-2 px-4 rounded-lg border border-slate-700 transition duration-150">
+                                    Regresar al Panel Central
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <section id="tab-insignias" class="tab-content hidden flex flex-col gap-6">
+                    <div class="border-b border-slate-800 pb-3">
+                        <h2 class="text-2xl font-bold font-tech text-white">SALA DE INSIGNIAS DE CRONONAUTA</h2>
+                        <p class="text-xs text-slate-400">Tus condecoraciones oficiales por preservar el tejido del espacio-tiempo</p>
+                    </div>
+
+                    <!-- Dynamic Badge Display -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 py-4">
+                        
+                        <!-- Badge 1 -->
+                        <div id="badge-inventor-novato" class="bg-slate-900 p-5 rounded-xl border border-slate-800 text-center flex flex-col items-center transition duration-300 grayscale opacity-40 relative group">
+                            <div class="w-14 h-14 bg-blue-500/10 rounded-full flex items-center justify-center border-2 border-slate-700 text-2xl text-slate-500 group-hover:scale-105 transition-all mb-3 shadow-lg badge-icon">
+                                <i class="fa-solid fa-seedling text-blue-400"></i>
+                            </div>
+                            <h4 class="font-tech font-bold text-xs text-slate-300 mb-1 badge-name">Inventor Novato</h4>
+                            <p class="text-[10px] text-slate-400 leading-snug">Completa el registro y responde tu primera pregunta temporal.</p>
+                            <span class="absolute top-2 right-2 text-[8px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-400 status-lbl">Bloqueado</span>
+                        </div>
+
+                        <!-- Badge 2 -->
+                        <div id="badge-explorador" class="bg-slate-900 p-5 rounded-xl border border-slate-800 text-center flex flex-col items-center transition duration-300 grayscale opacity-40 relative group">
+                            <div class="w-14 h-14 bg-cyan-500/10 rounded-full flex items-center justify-center border-2 border-slate-700 text-2xl text-slate-500 group-hover:scale-105 transition-all mb-3 shadow-lg badge-icon">
+                                <i class="fa-solid fa-map-location-dot text-cyan-400"></i>
+                            </div>
+                            <h4 class="font-tech font-bold text-xs text-slate-300 mb-1 badge-name">Explorador Tecnológico</h4>
+                            <p class="text-[10px] text-slate-400 leading-snug">Resuelve con éxito 3 misiones de la línea de tiempo.</p>
+                            <span class="absolute top-2 right-2 text-[8px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-400 status-lbl">Bloqueado</span>
+                        </div>
+
+                        <!-- Badge 3 -->
+                        <div id="badge-innovacion" class="bg-slate-900 p-5 rounded-xl border border-slate-800 text-center flex flex-col items-center transition duration-300 grayscale opacity-40 relative group">
+                            <div class="w-14 h-14 bg-indigo-500/10 rounded-full flex items-center justify-center border-2 border-slate-700 text-2xl text-slate-500 group-hover:scale-105 transition-all mb-3 shadow-lg badge-icon">
+                                <i class="fa-solid fa-gears text-indigo-400"></i>
+                            </div>
+                            <h4 class="font-tech font-bold text-xs text-slate-300 mb-1 badge-name">Maestro Innovador</h4>
+                            <p class="text-[10px] text-slate-400 leading-snug">Resuelve con éxito 6 misiones de la línea de tiempo.</p>
+                            <span class="absolute top-2 right-2 text-[8px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-400 status-lbl">Bloqueado</span>
+                        </div>
+
+                        <!-- Badge 4 -->
+                        <div id="badge-guardian" class="bg-slate-900 p-5 rounded-xl border border-slate-800 text-center flex flex-col items-center transition duration-300 grayscale opacity-40 relative group">
+                            <div class="w-14 h-14 bg-pink-500/10 rounded-full flex items-center justify-center border-2 border-slate-700 text-2xl text-slate-500 group-hover:scale-105 transition-all mb-3 shadow-lg badge-icon">
+                                <i class="fa-solid fa-shield-halved text-pink-400"></i>
+                            </div>
+                            <h4 class="font-tech font-bold text-xs text-slate-300 mb-1 badge-name">Guardián Digital</h4>
+                            <p class="text-[10px] text-slate-400 leading-snug">Alcanza más de 150 puntos de experiencia.</p>
+                            <span class="absolute top-2 right-2 text-[8px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-400 status-lbl">Bloqueado</span>
+                        </div>
+
+                        <!-- Badge 5 -->
+                        <div id="badge-supremo" class="bg-slate-900 p-5 rounded-xl border border-slate-800 text-center flex flex-col items-center transition duration-300 grayscale opacity-40 relative group">
+                            <div class="w-14 h-14 bg-yellow-500/10 rounded-full flex items-center justify-center border-2 border-slate-700 text-2xl text-slate-500 group-hover:scale-105 transition-all mb-3 shadow-lg badge-icon">
+                                <i class="fa-solid fa-crown text-yellow-400"></i>
+                            </div>
+                            <h4 class="font-tech font-bold text-xs text-slate-300 mb-1 badge-name">Crononauta Supremo</h4>
+                            <p class="text-[10px] text-slate-400 leading-snug">Supera las 8 misiones temporales del curso.</p>
+                            <span class="absolute top-2 right-2 text-[8px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-400 status-lbl">Bloqueado</span>
+                        </div>
+
+                    </div>
+
+                    <!-- Level Progression Card System -->
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 mt-4">
+                        <h4 class="font-tech font-bold text-sm text-slate-100 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-cyan-400"></i> Tabla de Escalas de Rango y Niveles
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-center">
+                                <span class="text-[10px] text-slate-400 font-mono">0 - 50 XP</span>
+                                <h5 class="text-xs font-bold font-tech text-slate-300 mt-1">Aprendiz Tecnológico</h5>
+                                <span class="inline-block text-[9px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded mt-2">Nivel 1</span>
+                            </div>
+                            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-center">
+                                <span class="text-[10px] text-slate-400 font-mono">51 - 100 XP</span>
+                                <h5 class="text-xs font-bold font-tech text-slate-300 mt-1">Explorador Digital</h5>
+                                <span class="inline-block text-[9px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded mt-2">Nivel 2</span>
+                            </div>
+                            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-center">
+                                <span class="text-[10px] text-slate-400 font-mono">101 - 150 XP</span>
+                                <h5 class="text-xs font-bold font-tech text-slate-300 mt-1">Crononauta Oficial</h5>
+                                <span class="inline-block text-[9px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded mt-2">Nivel 3</span>
+                            </div>
+                            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-center">
+                                <span class="text-[10px] text-slate-400 font-mono">151 - 200 XP</span>
+                                <h5 class="text-xs font-bold font-tech text-slate-300 mt-1">Maestro de Innovación</h5>
+                                <span class="inline-block text-[9px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded mt-2">Nivel 4</span>
+                            </div>
+                            <div class="bg-slate-950/60 p-3 rounded-lg border border-indigo-900/40 text-center">
+                                <span class="text-[10px] text-indigo-400 font-mono">> 200 XP</span>
+                                <h5 class="text-xs font-bold font-tech text-indigo-300 mt-1">Guardián del Tiempo</h5>
+                                <span class="inline-block text-[9px] bg-indigo-950/80 text-indigo-400 px-2 py-0.5 rounded mt-2 border border-indigo-500/20">Nivel 5</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-ranking" class="tab-content hidden flex flex-col gap-6">
+                    <div class="border-b border-slate-800 pb-3 flex justify-between items-center flex-wrap gap-2">
+                        <div>
+                            <h2 class="text-2xl font-bold font-tech text-white">RANKING DE CRONONAUTAS</h2>
+                            <p class="text-xs text-slate-400">Tabla de clasificación en tiempo real con las mejores tripulaciones del aula</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="text-[10px] text-slate-400 font-tech">Sincronización Cuántica Activa</span>
+                        </div>
+                    </div>
+
+                    <!-- Leaderboard Table -->
+                    <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase font-tech text-[10px] tracking-wider">
+                                        <th class="py-3 px-4 text-center">Rango</th>
+                                        <th class="py-3 px-4">Crononauta</th>
+                                        <th class="py-3 px-4">Nivel / Rango Temporal</th>
+                                        <th class="py-3 px-4 text-right">Insignias</th>
+                                        <th class="py-3 px-4 text-right">Puntos XP</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboardBody">
+                                    <!-- Dynamic rows from JS (including active player) -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-juego" class="tab-content hidden flex flex-col gap-6">
+                    <div class="border-b border-slate-800 pb-3">
+                        <h2 class="text-2xl font-bold font-tech text-white">RESCATE TECNOLÓGICO: CRONONAUTAS DEL TIEMPO</h2>
+                        <p class="text-xs text-slate-400">Elaboración propia: Velásquez Rodríguez, A. (2026). Rescate Tecnológico</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        <!-- Details on game -->
+                        <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col gap-4">
+                            <div>
+                                <h4 class="font-tech font-bold text-sm text-cyan-400">Información del Recurso</h4>
+                                <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                                    Juego digital interactivo gamificado diseñado en la plataforma Genially. Los estudiantes deben resolver acertijos y desafíos multimedia para estabilizar líneas temporales.
+                                </p>
+                            </div>
+
+                            <div class="text-xs space-y-2 border-t border-slate-800 pt-3">
+                                <div><strong class="text-slate-300">Herramienta:</strong> Genially</div>
+                                <div><strong class="text-slate-300">Diseño Instruccional:</strong> Con apoyo de IA generativa para el refinamiento de la trama y narrativas específicas de las misiones históricas.</div>
+                            </div>
+
+                            <!-- Genially URL Config (So teachers can update it easily) -->
+                            <div class="border-t border-slate-800 pt-3">
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Enlace del Recurso Digital</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="geniallyUrlInput" value="https://view.genially.com/sample-rescue-mission-not-real" disabled
+                                           class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-[10px] text-slate-400 outline-none">
+                                    <button onclick="copyGeniallyLink()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 rounded text-[10px] transition duration-150 flex items-center gap-1">
+                                        <i class="fa-regular fa-copy"></i> Copiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Simulated Game Screen / Screenshot -->
+                        <div class="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center relative min-h-[350px]">
+                            
+                            <!-- Static Screenshot Placeholder in absolute cybernetic theme -->
+                            <div class="absolute inset-0 bg-gradient-to-b from-indigo-950/20 to-slate-950/90 z-0"></div>
+                            
+                            <!-- Interactivity simulation inside preview -->
+                            <div class="relative z-10 text-center p-6 flex flex-col items-center max-w-md">
+                                <div class="w-16 h-16 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-slate-950 text-2xl font-bold shadow-lg shadow-emerald-500/20 mb-4 animate-pulse">
+                                    <i class="fa-solid fa-play"></i>
+                                </div>
+                                <h4 class="font-tech font-bold text-white text-lg">Rescate Tecnológico: Crononautas del Tiempo</h4>
+                                <p class="text-xs text-slate-400 mt-2">
+                                    Un portal interactivo hacia Genially. Aquí se proyecta la pantalla de inicio con la máquina de vapor, la rueda y la imprenta para completar misiones paralelas.
+                                </p>
+
+                                <div class="flex flex-wrap gap-2 mt-4 justify-center">
+                                    <span class="bg-indigo-950/60 border border-indigo-500/20 text-indigo-400 text-[10px] px-2.5 py-1 rounded">Captura de Pantalla: Portada Creada</span>
+                                    <span class="bg-cyan-950/60 border border-cyan-500/20 text-cyan-400 text-[10px] px-2.5 py-1 rounded">Misión 1: Activa</span>
+                                </div>
+
+                                <button onclick="window.open('https://genially.com', '_blank')" class="mt-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-tech font-bold text-xs py-2 px-6 rounded-lg transition duration-150 uppercase tracking-wider">
+                                    Lanzar en Ventana Nueva <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <section id="tab-recursos" class="tab-content hidden flex flex-col gap-6">
+                    <div class="border-b border-slate-800 pb-3">
+                        <h2 class="text-2xl font-bold font-tech text-white">RECURSOS EDUCATIVOS & EVALUACIONES</h2>
+                        <p class="text-xs text-slate-400">Rúbricas del curso, Conclusiones de Aprendizaje y Bibliografía oficial</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <!-- Rúbrica / Criterios de Evaluación -->
+                        <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 flex flex-col gap-4">
+                            <h4 class="font-tech font-bold text-sm text-pink-400 flex items-center gap-2">
+                                <i class="fa-solid fa-list-check"></i> Criterios de Evaluación
+                            </h4>
+                            <p class="text-xs text-slate-400 leading-relaxed">
+                                El rendimiento integral se calcula basándose en la dedicación de las tripulaciones y las destrezas de cada crononauta:
+                            </p>
+                            
+                            <!-- Simple Bar visualization -->
+                            <div class="space-y-3 mt-1">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Participación en misiones</span>
+                                        <span class="font-bold text-cyan-400">20%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-950 rounded-full h-1.5">
+                                        <div class="bg-cyan-500 h-1.5 rounded-full" style="width: 20%"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Retos tecnológicos</span>
+                                        <span class="font-bold text-indigo-400">25%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-950 rounded-full h-1.5">
+                                        <div class="bg-indigo-500 h-1.5 rounded-full" style="width: 25%"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Trabajo colaborativo</span>
+                                        <span class="font-bold text-emerald-400">15%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-950 rounded-full h-1.5">
+                                        <div class="bg-emerald-500 h-1.5 rounded-full" style="width: 15%"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Juego digital</span>
+                                        <span class="font-bold text-yellow-400">15%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-950 rounded-full h-1.5">
+                                        <div class="bg-yellow-500 h-1.5 rounded-full" style="width: 15%"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Proyecto final</span>
+                                        <span class="font-bold text-pink-400">20%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-950 rounded-full h-1.5">
+                                        <div class="bg-pink-500 h-1.5 rounded-full" style="width: 20%"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Actitud y compromiso</span>
+                                        <span class="font-bold text-slate-300">5%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-950 rounded-full h-1.5">
+                                        <div class="bg-slate-400 h-1.5 rounded-full" style="width: 5%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Conclusión -->
+                        <div class="bg-slate-900 p-5 rounded-xl border border-slate-800">
+                            <h4 class="font-tech font-bold text-sm text-emerald-400 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-graduation-cap"></i> Conclusión de la Estrategia
+                            </h4>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                La estrategia gamificada <span class="text-cyan-400 font-semibold font-tech">"Guardians of Time: La Misión de los Inventos Perdidos"</span> permite transformar radicalmente el aprendizaje tradicional de la Tecnología e Informática en una experiencia inmersiva y motivadora.
+                            </p>
+                            <p class="text-xs text-slate-400 leading-relaxed">
+                                Al combinar la narrativa de los viajes temporales con desafíos, insignias y una progresión dinámica en equipo, los estudiantes de noveno grado asimilan con naturalidad la evolución histórica de las herramientas digitales y el desarrollo de sus propias competencias investigativas y comunicativas en el siglo XXI.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <!-- Bibliografía (APA 7th Format) -->
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 mt-4">
+                        <h4 class="font-tech font-bold text-sm text-indigo-400 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-book"></i> Bibliografía y Referencias de Respaldo
+                        </h4>
+                        <div class="space-y-3 text-[11px] text-slate-400 leading-relaxed font-mono">
+                            <p class="pl-4 -indent-4">
+                                <span class="text-slate-200">Borrás Gené, O. (2015).</span> <em>Fundamentos de la gamificación.</em> Universidad Politécnica de Madrid.
+                            </p>
+                            <p class="pl-4 -indent-4">
+                                <span class="text-slate-200">Kapp, K. M. (2012).</span> <em>The gamification of learning and instruction: Game-based methods and strategies for training and education.</em> Pfeiffer.
+                            </p>
+                            <p class="pl-4 -indent-4">
+                                <span class="text-slate-200">Marczewski, A. (2013).</span> <em>Gamification: A simple introduction.</em> Self-Publishing.
+                            </p>
+                            <p class="pl-4 -indent-4">
+                                <span class="text-slate-200">UNIR. (2026).</span> <em>Creación de contenidos, mobile learning y gamificación en el aula.</em> Universidad Internacional de La Rioja.
+                            </p>
+                            <p class="pl-4 -indent-4">
+                                <span class="text-slate-200">Werbach, K., & Hunter, D. (2015).</span> <em>For the win: How game thinking can revolutionize your business.</em> Wharton Digital Press.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-slate-950 border-t border-slate-900 py-6 mt-12 text-center relative z-10 text-xs text-slate-500">
+            <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <p>© 2026 Guardians of Time - Central de Control del Aprendizaje. Diseñado de forma propia.</p>
+                <div class="flex gap-4">
+                    <span class="hover:text-cyan-400 cursor-help" onclick="showToast('Guía', 'Interactúa con las misiones en la barra lateral para ganar XP.', 'info')">Manual del Crononauta</span>
+                    <span class="text-slate-800">|</span>
+                    <span class="hover:text-indigo-400 cursor-help" onclick="showToast('Sistema', 'Canal cuántico seguro y cifrado en tiempo real.', 'success')">Estado del Servidor</span>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        // Main game state
+        const state = {
+            crononautName: "Invitado Temporal",
+            avatar: "🕶️",
+            xp: 0,
+            level: 1,
+            range: "Aprendiz Tecnológico",
+            unlockedBadges: [], // 'novato', 'explorador', 'innovador', 'guardian', 'supremo'
+            completedMissions: [], // stores IDs of completed missions
+            activeMissionId: null,
+            selectedAnswerIdx: null
+        };
+
+        // Static historical fun facts rotated at random on UI
+        const facts = [
+            "La primera rueda no se usó para transporte, sino como torno de alfarero en Mesopotamia.",
+            "La Biblia de Gutenberg fue impresa con tipos móviles metálicos de plomo, estaño y antimonio.",
+            "Las primeras brújulas chinas flotaban en agua usando minerales magnéticos llamados magnetita.",
+            "La máquina de vapor de James Watt fue un perfeccionamiento clave de la anterior de Newcomen.",
+            "Ada Lovelace escribió el primer algoritmo computacional del mundo para una máquina de metal.",
+            "El protocolo TCP/IP, base de internet, fue diseñado para conectar centros de cómputo en la Guerra Fría."
+        ];
+
+        // All 8 Weekly Missions Config
+        const missions = [
+            {
+                id: "m1",
+                week: 2,
+                title: "Misión Mesopotamia: La Rueda",
+                desc: "Has aterrizado en el año 3500 a.C. en Sumeria. Los ingenieros locales debaten sobre un disco giratorio de piedra pesada para agilizar el transporte de cargamento.",
+                question: "¿Cuál es la función del eje central al acoplarse con la rueda?",
+                options: [
+                    "Soportar la carga y guiar la rotación con la menor fricción posible.",
+                    "Generar energía térmica para acelerar el rodado.",
+                    "Hacer que el carro flote sobre caminos de arena fina.",
+                    "Servir únicamente de adorno estético para los sumerios."
+                ],
+                correctIdx: 0,
+                xpValue: 50
+            },
+            {
+                id: "m2",
+                week: 3,
+                title: "Reto Gutenberg: La Imprenta",
+                desc: "Te ubicas en Mainz, Alemania, en el año 1450. Johannes Gutenberg necesita refinar su prensa mecánica para acelerar la copia de textos sin depender de copistas manuales.",
+                question: "¿Qué ventaja revolucionaria introdujo el sistema de 'tipos móviles'?",
+                options: [
+                    "Permitir la reutilización de caracteres de metal individuales para armar diferentes páginas de texto.",
+                    "Hacer que las páginas se impriman con tinta invisible.",
+                    "Usar electricidad estática para grabar letras en la piedra.",
+                    "Hacer innecesario el uso de papel o pergamino."
+                ],
+                correctIdx: 0,
+                xpValue: 50
+            },
+            {
+                id: "m3",
+                week: 4,
+                title: "Expedición Marítima: La Brújula",
+                desc: "Estás a bordo de un barco del siglo XIII en el Mar de China Meridional. El cielo está nublado y no hay estrellas guías. Se requiere reorientar la expedición marina.",
+                question: "¿Qué propiedad física permite que la aguja imantada de la brújula señale el norte?",
+                options: [
+                    "La atracción magnética ejercida por el campo magnético de la Tierra.",
+                    "Las corrientes de viento caliente ecuatorial.",
+                    "La fuerza de la gravedad lunar sobre el agua.",
+                    "El magnetismo de la estrella polar directamente."
+                ],
+                correctIdx: 0,
+                xpValue: 50
+            },
+            {
+                id: "m4",
+                week: 5,
+                title: "Revolución Industrial: Máquina de Vapor",
+                desc: "Reino Unido, año 1776. El carbón es extraído para alimentar fábricas, pero se necesita un motor potente que bombee el agua fuera de los túneles subterráneos de la mina.",
+                question: "¿Cómo convierte la máquina de vapor la energía calorífica en energía mecánica?",
+                options: [
+                    "Al expandirse el vapor de agua a alta presión dentro de un cilindro, empujando un pistón.",
+                    "Al quemar directamente metal dentro de un sistema eléctrico cerrado.",
+                    "Al enfriar el agua hasta congelarla rápidamente.",
+                    "Al girar una rueda mediante corrientes de agua fría."
+                ],
+                correctIdx: 0,
+                xpValue: 50
+            },
+            {
+                id: "m5",
+                week: 6,
+                title: "Comunicación Global: El Teléfono",
+                desc: "Año 1876. Dos inventores, Graham Bell y Elisha Gray, compiten ferozmente por patentar el aparato capaz de transmitir voz humana a grandes distancias mediante cableado metálico.",
+                question: "¿Qué principio físico utiliza el micrófono del teléfono para enviar la voz por un cable?",
+                options: [
+                    "La conversión de ondas sonoras mecánicas en variaciones de corriente eléctrica analógica.",
+                    "La transferencia directa de calor a través del metal templado.",
+                    "El envío de pequeñas gotas de agua por el interior del cable.",
+                    "La emisión de luz ultravioleta por la aguja vibradora."
+                ],
+                correctIdx: 0,
+                xpValue: 50
+            },
+            {
+                id: "m6",
+                week: 7,
+                title: "Era Digital: El Computador",
+                desc: "Año 1946. En la Universidad de Pensilvania se enciende la máquina gigante ENIAC, compuesta por miles de válvulas de vacío que realizan cálculos lógicos a velocidades increíbles.",
+                question: "¿Cuál es la principal diferencia entre una computadora electrónica y las calculadoras mecánicas anteriores?",
+                options: [
+                    "La capacidad de ser programada para ejecutar diversas tareas de forma automática.",
+                    "Que solo puede resolver operaciones sencillas de suma de un dígito.",
+                    "Que funciona con carbón molido en lugar de electricidad.",
+                    "Que depende de la luz del sol para arrancar."
+                ],
+                correctIdx: 0,
+                xpValue: 50
+            },
+            {
+                id: "m7",
+                week: 8,
+                title: "Misión Futuro: Internet e IA",
+                desc: "Año 2026. La humanidad conecta miles de millones de nodos y procesadores lógicos simultáneos. Se discute la llegada de redes neuronales de Inteligencia Artificial avanzadas.",
+                question: "¿Qué es en esencia el protocolo de internet TCP/IP?",
+                options: [
+                    "Un conjunto de reglas estandarizadas para que los paquetes de datos viajen y se ensamblen en la red.",
+                    "Un software comercial propiedad de una sola empresa privada.",
+                    "Una antena de gran escala hecha de cobre electrolítico.",
+                    "El nombre del primer robot con inteligencia artificial."
+                ],
+                correctIdx: 0,
+                xpValue: 50
+            }
+        ];
+
+        // Simulated leaderboard data (Static + dynamic insertion of current user)
+        const fakeLeaderboard = [
+            { name: "Tripulación Alpha", avatar: "🚀", levelName: "Guardián Supremo", badges: 5, xp: 280, activePlayer: false },
+            { name: "Sonia_Chrono", avatar: "👾", levelName: "Maestro Innovación", badges: 4, xp: 190, activePlayer: false },
+            { name: "CarlosTempus", avatar: "⚡", levelName: "Crononauta", badges: 3, xp: 120, activePlayer: false },
+            { name: "Temporal_9", avatar: "🚀", levelName: "Explorador Digital", badges: 2, xp: 85, activePlayer: false },
+            { name: "Matias_Future", avatar: "⚡", levelName: "Aprendiz", badges: 1, xp: 30, activePlayer: false }
+        ];
+
+        // Initialize background animation (Particle Space Canvas)
+        window.onload = function() {
+            initBackgroundAnimation();
+            rotateFacts();
+            setInterval(rotateFacts, 8000);
+
+            // Check if user already exists in sessionStorage
+            const savedState = sessionStorage.getItem('crononaut_state');
+            if (savedState) {
+                Object.assign(state, JSON.parse(savedState));
+                document.getElementById('onboardingModal').classList.add('hidden');
+                updateUI();
+            }
+        };
+
+        function initBackgroundAnimation() {
+            const canvas = document.getElementById("bgCanvas");
+            const ctx = canvas.getContext("2d");
+            let width = (canvas.width = window.innerWidth);
+            let height = (canvas.height = window.innerHeight);
+
+            // Simple particles list
+            const particles = [];
+            for (let i = 0; i < 60; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: Math.random() * 2 + 0.5,
+                    speedX: Math.random() * 0.2 - 0.1,
+                    speedY: Math.random() * 0.2 - 0.1
+                });
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = "rgba(16, 185, 129, 0.2)"; // Soft green sparks
+                particles.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+
+                    // Bounds check
+                    if (p.x < 0 || p.x > width) p.speedX *= -1;
+                    if (p.y < 0 || p.y > height) p.speedY *= -1;
+                });
+                requestAnimationFrame(draw);
+            }
+
+            draw();
+
+            window.addEventListener("resize", () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            });
+        }
+
+        function rotateFacts() {
+            const index = Math.floor(Math.random() * facts.length);
+            document.getElementById("timeFact").innerText = facts[index];
+        }
+
+        let selectedAvatarChar = "🕶️";
+        function selectAvatar(char, btn) {
+            playSound('click');
+            selectedAvatarChar = char;
+            document.querySelectorAll(".avatar-opt").forEach(b => {
+                b.classList.remove("border-cyan-500", "bg-cyan-950/30");
+                b.classList.add("border-transparent");
+            });
+            btn.classList.add("border-cyan-500", "bg-cyan-950/30");
+        }
+
+        function registerCrononaut() {
+            const nameField = document.getElementById("crononautName").value.trim();
+            if (nameField === "") {
+                showToast("Error", "Por favor ingresa un nombre válido.", "fail");
+                playSound('fail');
+                return;
+            }
+            state.crononautName = nameField;
+            state.avatar = selectedAvatarChar;
+            state.xp = 0;
+            state.level = 1;
+            state.range = "Aprendiz Tecnológico";
+            
+            // Earn 10 XP instantly for starting
+            state.xp += 10;
+            state.unlockedBadges = ['novato'];
+
+            saveSession();
+
+            // Transition UI
+            document.getElementById("onboardingModal").classList.add("hidden");
+            playSound('level-up');
+            showToast("Reclutamiento", `¡Bienvenido ${state.crononautName}! Iniciando telemetría temporal.`, "success");
+            updateUI();
+        }
+
+        // SAVE & LOAD
+        function saveSession() {
+            sessionStorage.setItem('crononaut_state', JSON.stringify(state));
+        }
+
+        // SWITCH TAB LOGIC
+        function switchTab(tabId) {
+            playSound('click');
+            // Hide all
+            document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+            // Show selected
+            document.getElementById(`tab-${tabId}`).classList.remove("hidden");
+
+            // Nav style switch
+            document.querySelectorAll("#navTabs button").forEach(btn => {
+                btn.classList.remove("active", "text-white", "bg-slate-800/80");
+                if (btn.getAttribute("data-tab") === tabId) {
+                    btn.classList.add("active", "text-white", "bg-slate-800/80");
+                }
+            });
+        }
+
+        function showToast(title, message, type) {
+            const toast = document.getElementById("feedbackToast");
+            const tContent = document.getElementById("toastContent");
+            const tTitle = document.getElementById("toastTitle");
+            const tMessage = document.getElementById("toastMessage");
+            const tIcon = document.getElementById("toastIcon");
+
+            tTitle.innerText = title;
+            tMessage.innerText = message;
+
+            // Apply coloring depending on type
+            if (type === 'success') {
+                tContent.className = "bg-slate-900 border-l-4 border-emerald-500 py-3 px-5 rounded-lg shadow-xl flex items-center gap-3";
+                tIcon.className = "fa-solid fa-circle-check text-emerald-500 text-lg";
+            } else if (type === 'fail') {
+                tContent.className = "bg-slate-900 border-l-4 border-red-500 py-3 px-5 rounded-lg shadow-xl flex items-center gap-3";
+                tIcon.className = "fa-solid fa-triangle-exclamation text-red-500 text-lg";
+            } else {
+                tContent.className = "bg-slate-900 border-l-4 border-cyan-400 py-3 px-5 rounded-lg shadow-xl flex items-center gap-3";
+                tIcon.className = "fa-solid fa-circle-info text-cyan-400 text-lg";
+            }
+
+            // Slide in
+            toast.className = "fixed top-20 right-4 z-50 transform translate-x-0 transition-all duration-300";
+            
+            // Slide out after 3.5s
+            setTimeout(() => {
+                toast.className = "fixed top-20 right-4 z-50 transform translate-x-96 transition-all duration-300 pointer-events-none";
+            }, 3500);
+        }
+
+        // COPY TO CLIPBOARD Helper
+        function copyGeniallyLink() {
+            playSound('click');
+            const dummy = document.createElement("input");
+            document.body.appendChild(dummy);
+            dummy.value = document.getElementById("geniallyUrlInput").value;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+            showToast("Copiado", "Enlace de Genially copiado al portapapeles.", "success");
+        }
+
+        function updateUI() {
+            // Header stats
+            document.getElementById("headerAvatar").innerText = state.avatar;
+            document.getElementById("headerName").innerText = state.crononautName;
+            document.getElementById("headerXP").innerText = state.xp;
+
+            // Recalculate Level and Range based on XP
+            if (state.xp <= 50) {
+                state.level = 1;
+                state.range = "Aprendiz Tecnológico";
+            } else if (state.xp <= 100) {
+                state.level = 2;
+                state.range = "Explorador Digital";
+            } else if (state.xp <= 150) {
+                state.level = 3;
+                state.range = "Crononauta";
+            } else if (state.xp <= 200) {
+                state.level = 4;
+                state.range = "Maestro de la Innovación";
+            } else {
+                state.level = 5;
+                state.range = "Guardián Supremo del Tiempo";
+            }
+
+            document.getElementById("headerLevelName").innerText = `Nivel ${state.level}: ${state.range}`;
+
+            // Calculate progress bar relative to max 250 XP
+            const barPct = Math.min((state.xp / 250) * 100, 100);
+            document.getElementById("headerXPBar").style.width = `${barPct}%`;
+
+            // Dynamic badges locks
+            updateBadgeShowroom();
+
+            // Refresh Leaders
+            renderLeaderboard();
+
+            // Build dynamic mission left panel
+            renderMissionSelector();
+        }
+
+        // Lock & Unlock Badges visually
+        function updateBadgeShowroom() {
+            // Check condition triggers
+            if (state.xp >= 10 && !state.unlockedBadges.includes('novato')) {
+                state.unlockedBadges.push('novato');
+            }
+            if (state.completedMissions.length >= 3 && !state.unlockedBadges.includes('explorador')) {
+                state.unlockedBadges.push('explorador');
+            }
+            if (state.completedMissions.length >= 6 && !state.unlockedBadges.includes('innovador')) {
+                state.unlockedBadges.push('innovador');
+            }
+            if (state.xp >= 151 && !state.unlockedBadges.includes('guardian')) {
+                state.unlockedBadges.push('guardian');
+            }
+            if (state.completedMissions.length >= 7 && !state.unlockedBadges.includes('supremo')) {
+                state.unlockedBadges.push('supremo');
+            }
+
+            document.getElementById("badgeCountHeader").innerText = `${state.unlockedBadges.length}/5`;
+
+            // Sync visual classes
+            toggleBadgeStyle("badge-inventor-novato", state.unlockedBadges.includes('novato'));
+            toggleBadgeStyle("badge-explorador", state.unlockedBadges.includes('explorador'));
+            toggleBadgeStyle("badge-innovacion", state.unlockedBadges.includes('innovador'));
+            toggleBadgeStyle("badge-guardian", state.unlockedBadges.includes('guardian'));
+            toggleBadgeStyle("badge-supremo", state.unlockedBadges.includes('supremo'));
+        }
+
+        function toggleBadgeStyle(id, isUnlocked) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const iconBox = el.querySelector(".badge-icon");
+            const nameText = el.querySelector(".badge-name");
+            const statusText = el.querySelector(".status-lbl");
+
+            if (isUnlocked) {
+                el.classList.remove("grayscale", "opacity-40");
+                el.classList.add("border-yellow-500/40");
+                iconBox.classList.remove("border-slate-700", "text-slate-500");
+                iconBox.classList.add("border-yellow-500", "neon-glow-purple");
+                nameText.classList.remove("text-slate-300");
+                nameText.classList.add("text-yellow-400");
+                statusText.innerText = "¡Desbloqueado!";
+                statusText.className = "absolute top-2 right-2 text-[8px] bg-yellow-950 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-500/30 font-bold";
+            } else {
+                el.classList.add("grayscale", "opacity-40");
+                el.classList.remove("border-yellow-500/40");
+                iconBox.classList.add("border-slate-700", "text-slate-500");
+                iconBox.classList.remove("border-yellow-500", "neon-glow-purple");
+                nameText.classList.add("text-slate-300");
+                nameText.classList.remove("text-yellow-400");
+                statusText.innerText = "Bloqueado";
+                statusText.className = "absolute top-2 right-2 text-[8px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-400";
+            }
+        }
+
+        function renderMissionSelector() {
+            const container = document.getElementById("misionesSelectorList");
+            container.innerHTML = "";
+
+            missions.forEach(m => {
+                const isCompleted = state.completedMissions.includes(m.id);
+                const isActive = state.activeMissionId === m.id;
+
+                let borderStyle = "border-slate-800 bg-slate-900 hover:bg-slate-800";
+                let icon = '<i class="fa-solid fa-lock text-slate-500 text-xs"></i>';
+                let statusBadge = `<span class="text-[9px] text-slate-500 font-mono">En espera</span>`;
+
+                if (isCompleted) {
+                    borderStyle = "border-emerald-500/20 bg-emerald-950/20 hover:bg-emerald-950/30";
+                    icon = '<i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>';
+                    statusBadge = `<span class="text-[9px] text-emerald-400 font-mono font-bold uppercase">Recuperado</span>`;
+                } else if (isActive) {
+                    borderStyle = "border-cyan-500/60 bg-cyan-950/20";
+                    icon = '<i class="fa-solid fa-satellite-dish text-cyan-400 text-sm animate-pulse"></i>';
+                    statusBadge = `<span class="text-[9px] text-cyan-400 font-mono font-bold animate-pulse">Viajando...</span>`;
+                } else {
+                    icon = '<i class="fa-solid fa-hourglass-start text-indigo-400 text-sm"></i>';
+                }
+
+                const btn = document.createElement("button");
+                btn.className = `w-full text-left p-2.5 rounded-lg border flex items-center justify-between gap-3 transition duration-150 ${borderStyle}`;
+                btn.onclick = () => loadMission(m.id);
+
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        ${icon}
+                        <div>
+                            <div class="text-xs font-bold text-slate-200 font-tech leading-snug">${m.title}</div>
+                            <div class="text-[9px] text-slate-400">Sem. ${m.week} • Tecnología</div>
+                        </div>
+                    </div>
+                    ${statusBadge}
+                `;
+
+                container.appendChild(btn);
+            });
+        }
+
+        function renderLeaderboard() {
+            const tableBody = document.getElementById("leaderboardBody");
+            tableBody.innerHTML = "";
+
+            // Create combined array, insert current state
+            const dynamicList = [...fakeLeaderboard];
+            
+            // Check if player already modeled inside list
+            const pIdx = dynamicList.findIndex(x => x.activePlayer === true);
+            const playerRow = {
+                name: state.crononautName + " (TÚ)",
+                avatar: state.avatar,
+                levelName: state.range,
+                badges: state.unlockedBadges.length,
+                xp: state.xp,
+                activePlayer: true
+            };
+
+            if (pIdx !== -1) {
+                dynamicList[pIdx] = playerRow;
+            } else {
+                dynamicList.push(playerRow);
+            }
+
+            // Sort by XP descending
+            dynamicList.sort((a, b) => b.xp - a.xp);
+
+            dynamicList.forEach((row, i) => {
+                const tr = document.createElement("tr");
+                const pos = i + 1;
+                
+                let rankVisual = `${pos}`;
+                if (pos === 1) rankVisual = '<i class="fa-solid fa-trophy text-yellow-500 text-base"></i>';
+                else if (pos === 2) rankVisual = '<i class="fa-solid fa-trophy text-slate-400 text-base"></i>';
+                else if (pos === 3) rankVisual = '<i class="fa-solid fa-trophy text-amber-600 text-base"></i>';
+
+                let rowStyle = "border-b border-slate-800/60 hover:bg-slate-900/40";
+                if (row.activePlayer) {
+                    rowStyle = "border-b border-cyan-500/20 bg-cyan-950/20 hover:bg-cyan-950/30 font-bold";
+                }
+
+                tr.className = rowStyle;
+                tr.innerHTML = `
+                    <td class="py-3.5 px-4 text-center font-tech font-bold text-slate-300">${rankVisual}</td>
+                    <td class="py-3.5 px-4 flex items-center gap-2">
+                        <span class="text-lg">${row.avatar}</span>
+                        <span class="text-slate-200 font-tech">${row.name}</span>
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <span class="bg-slate-950/50 text-[10px] text-slate-300 font-mono px-2 py-0.5 rounded border border-slate-800">${row.levelName}</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                        <span class="text-yellow-500 text-xs font-mono font-bold">${row.badges} / 5</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                        <span class="text-emerald-400 font-mono font-bold">${row.xp} XP</span>
+                    </td>
+                `;
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function loadMission(id) {
+            playSound('click');
+            const m = missions.find(x => x.id === id);
+            if (!m) return;
+
+            state.activeMissionId = id;
+            state.selectedAnswerIdx = null;
+
+            // Render workspace layout
+            document.getElementById("noActiveMission").classList.add("hidden");
+            document.getElementById("missionSuccessState").classList.add("hidden");
+            
+            const activeWorkspace = document.getElementById("activeMissionPlay");
+            activeWorkspace.classList.remove("hidden");
+
+            // Complete Text Injection
+            document.getElementById("activeMissionWeek").innerText = `W-${m.week}: INVENTO PERDIDO`;
+            document.getElementById("activeMissionTitle").innerText = m.title;
+            document.getElementById("activeMissionDesc").innerText = m.desc;
+            document.getElementById("missionQuestion").innerText = m.question;
+
+            // Generate option tags
+            const optBox = document.getElementById("missionOptions");
+            optBox.innerHTML = "";
+
+            m.options.forEach((optText, idx) => {
+                const btn = document.createElement("button");
+                btn.className = "w-full text-left p-3 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs text-slate-300 transition duration-150 relative flex items-center gap-2";
+                btn.onclick = () => selectAnswer(idx, btn);
+                btn.innerHTML = `
+                    <span class="w-5 h-5 rounded-full border border-slate-700 bg-slate-950 flex items-center justify-center font-mono text-[10px] text-slate-400 idx-indicator">${String.fromCharCode(65 + idx)}</span>
+                    <span class="flex-1">${optText}</span>
+                `;
+                optBox.appendChild(btn);
+            });
+
+            // If already completed in the past
+            const isCompleted = state.completedMissions.includes(id);
+            const ansBtn = document.getElementById("sendAnswerBtn");
+            if (isCompleted) {
+                ansBtn.setAttribute("disabled", "true");
+                ansBtn.className = "bg-slate-800 text-slate-500 font-tech font-bold text-xs py-2 px-5 rounded-lg uppercase cursor-not-allowed";
+                ansBtn.innerHTML = `Resuelto con éxito <i class="fa-solid fa-lock ml-1"></i>`;
+            } else {
+                ansBtn.removeAttribute("disabled");
+                ansBtn.className = "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-tech font-bold text-xs py-2 px-5 rounded-lg uppercase transition duration-150";
+                ansBtn.innerHTML = `Transmitir Respuesta <i class="fa-solid fa-paper-plane ml-1"></i>`;
+            }
+
+            renderMissionSelector();
+        }
+
+        function selectAnswer(idx, btn) {
+            playSound('click');
+            // Disable if already completed
+            if (state.completedMissions.includes(state.activeMissionId)) return;
+
+            state.selectedAnswerIdx = idx;
+
+            // Highlight chosen item visually
+            document.querySelectorAll("#missionOptions button").forEach(b => {
+                b.className = "w-full text-left p-3 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs text-slate-300 transition duration-150 relative flex items-center gap-2";
+                b.querySelector(".idx-indicator").className = "w-5 h-5 rounded-full border border-slate-700 bg-slate-950 flex items-center justify-center font-mono text-[10px] text-slate-400 idx-indicator";
+            });
+
+            btn.className = "w-full text-left p-3 rounded-lg border border-cyan-500 bg-cyan-950/20 text-xs text-white transition duration-150 relative flex items-center gap-2 neon-border-cyan";
+            btn.querySelector(".idx-indicator").className = "w-5 h-5 rounded-full border border-cyan-400 bg-cyan-950 flex items-center justify-center font-mono text-[10px] text-cyan-400 idx-indicator";
+        }
+
+        function checkSelectedAnswer() {
+            if (state.selectedAnswerIdx === null) {
+                playSound('fail');
+                showToast("Coordenadas faltantes", "Selecciona una opción antes de transmitir el flujo.", "fail");
+                return;
+            }
+
+            const m = missions.find(x => x.id === state.activeMissionId);
+            if (state.selectedAnswerIdx === m.correctIdx) {
+                // SUCCESS
+                playSound('success');
+                state.xp += m.xpValue;
+                state.completedMissions.push(m.id);
+
+                // Check for dynamic level up trigger toast
+                const originalLevel = state.level;
+                // Run calculations & updates
+                saveSession();
+                updateUI();
+
+                if (state.level > originalLevel) {
+                    playSound('level-up');
+                    showToast("¡ASCENSO DE RANGO!", `¡Felicidades! Has ascendido a Rango ${state.level}: ${state.range}`, "success");
+                } else {
+                    showToast("Misión Correcta", `¡Plano temporal restaurado! Has recibido +${m.xpValue} XP.`, "success");
+                }
+
+                // Show Success Workspace state
+                document.getElementById("activeMissionPlay").classList.add("hidden");
+                document.getElementById("missionSuccessState").classList.remove("hidden");
+
+            } else {
+                // FAILED
+                playSound('fail');
+                showToast("Error de Estabilización", "Respuesta incorrecta. La paradoja temporal colapsará si lo envías. Intenta otra opción.", "fail");
+            }
+        }
+
+        function resetMissionSpace() {
+            playSound('click');
+            state.activeMissionId = null;
+            state.selectedAnswerIdx = null;
+            document.getElementById("activeMissionPlay").classList.add("hidden");
+            document.getElementById("missionSuccessState").classList.add("hidden");
+            document.getElementById("noActiveMission").classList.remove("hidden");
+            updateUI();
+        }
+    </script>
+</body>
+</html>
